@@ -1,0 +1,29 @@
+# ESP-IDF build artifacts
+**/build/
+
+# ESP-IDF generated config files
+**/sdkconfig
+**/sdkconfig.old
+**/sdkconfig.ci
+
+# CMake and Ninja cache files
+**/CMakeCache.txt
+**/CMakeFiles/
+**/cmake_install.cmake
+**/compile_commands.json
+**/.ninja_deps
+**/.ninja_log
+**/build.ninja
+
+# Python/cache
+**/__pycache__/
+**/*.pyc
+
+# IDE/editor
+.vscode/*
+!.vscode/settings.json
+!.vscode/c_cpp_properties.json
+
+# OS files
+.DS_Store
+Thumbs.db

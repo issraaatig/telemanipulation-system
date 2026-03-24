@@ -1,0 +1,25 @@
+name: ESP-IDF Build
+
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+    branches: [ main, master ]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        project: [glove_firmware, robot_firmware]
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: ESP-IDF build
+        uses: espressif/esp-idf-ci-action@v1
+        with:
+          esp_idf_version: v5.5.2
+          target: esp32
+          path: ./${{ matrix.project }}
