@@ -6,7 +6,7 @@
 #include <cstring>
 
 static const char *TAG = "espnow_tx";
-static esp_now_peer_info_t peer_info = {0};
+static esp_now_peer_info_t peer_info = {};
 
 esp_err_t espnow_tx_init(void) {
     ESP_ERROR_CHECK(esp_now_init());
