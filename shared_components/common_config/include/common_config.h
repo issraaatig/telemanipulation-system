@@ -9,6 +9,11 @@
 extern "C" {
 #endif
 
+// Single source of truth for demo hardware configuration:
+// - ESP-NOW peer MAC addresses
+// - GPIO assignments
+// - motion and PWM limits
+
 // Physical limits
 #define MIN_ANGLE_DEG 0
 #define MAX_ANGLE_DEG 90
@@ -47,6 +52,7 @@ extern uint8_t robot_mac[MAC_ADDR_LEN];
 
 /**
  * @brief Load runtime MACs if stored; defaults remain placeholders.
+ * Performs basic config validation (pins, limits, MAC format).
  */
 esp_err_t common_config_init(void);
 

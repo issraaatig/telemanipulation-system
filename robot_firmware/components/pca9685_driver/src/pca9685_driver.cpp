@@ -66,6 +66,16 @@ esp_err_t pca9685_init(void) {
 }
 
 esp_err_t pca9685_set_pwm(uint8_t channel, uint16_t on, uint16_t off) {
+    if (channel >= SERVO_COUNT) {
+        return ESP_ERR_INVALID_ARG;
+    }
+    if (on > 4095) {
+        on = 4095;
+    }
+    if (off > 4095) {
+        off = 4095;
+    }
+
     uint8_t reg = PCA9685_LED0_ON_L + 4 * channel;
     uint8_t data[4] = {
         (uint8_t)(on & 0xFF),
@@ -77,6 +87,16 @@ esp_err_t pca9685_set_pwm(uint8_t channel, uint16_t on, uint16_t off) {
 }
 
 esp_err_t pca9685_set_angle(uint8_t channel, uint16_t angle_deg_times_100) {
+    if (channel >= SERVO_COUNT) {
+        return ESP_ERR_INVALID_ARG;
+    }
+    if (angle_deg_times_100 < MIN_ANGLE_X100) {
+        angle_deg_times_100 = MIN_ANGLE_X100;
+    }
+    if (angle_deg_times_100 > MAX_ANGLE_X100) {
+        angle_deg_times_100 = MAX_ANGLE_X100;
+    }
+
     uint16_t pulse_us = map_angle_to_pwm(angle_deg_times_100);
     float ticks = ((float)pulse_us / 20000.0f) * 4096.0f;
     uint16_t off_count = (uint16_t)ticks;

@@ -12,12 +12,35 @@
 static const char *TAG = "robot_app";
 static QueueHandle_t angle_queue;
 
+static bool angles_valid(const glove_angles_t *angles) {
+    if (!angles) {
+        return false;
+    }
+    for (int i = 0; i < FLEX_SENSOR_COUNT; ++i) {
+        if (angles->angles[i] < MIN_ANGLE_X100) {
+            return false;
+        }
+        if (angles->angles[i] > MAX_ANGLE_X100) {
+            return false;
+        }
+    }
+    return true;
+}
+
 static void servo_task(void *arg) {
+    (void)arg;
     glove_angles_t angles = {0};
     while (1) {
         if (xQueueReceive(angle_queue, &angles, pdMS_TO_TICKS(20))) {
+            if (!angles_valid(&angles)) {
+                ESP_LOGW(TAG, "Invalid angle packet dropped");
+                continue;
+            }
+
             safety_manager_heartbeat();
-            update_servos(&angles);
+            if (safety_manager_motion_allowed()) {
+                update_servos(&angles);
+            }
         }
         fsr_feedback_poll();
     }

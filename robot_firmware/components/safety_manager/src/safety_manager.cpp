@@ -9,21 +9,48 @@ static const char *TAG = "safety";
 static int64_t last_rx_us = 0;
 static esp_timer_handle_t watchdog_timer;
 
+typedef enum {
+    SAFETY_STATE_NORMAL = 0,
+    SAFETY_STATE_TIMEOUT_HOLD,
+    SAFETY_STATE_SAFE_OPEN,
+    SAFETY_STATE_ESTOP
+} safety_state_t;
+
+static volatile safety_state_t g_state = SAFETY_STATE_NORMAL;
+
+static void set_state(safety_state_t new_state) {
+    if (g_state != new_state) {
+        ESP_LOGW(TAG, "Safety state changed: %d -> %d", (int)g_state, (int)new_state);
+        g_state = new_state;
+    }
+}
+
 static void emergency_isr(void *arg) {
+    (void)arg;
+    set_state(SAFETY_STATE_ESTOP);
     pca9685_enable_output(false);
 }
 
 static void watchdog_cb(void *arg) {
+    (void)arg;
+    if (g_state == SAFETY_STATE_ESTOP) {
+        pca9685_enable_output(false);
+        return;
+    }
+
     int64_t now = esp_timer_get_time();
     int64_t since_ms = (now - last_rx_us) / 1000;
     if (since_ms > SAFETY_HOLD_MS) {
+        set_state(SAFETY_STATE_SAFE_OPEN);
         for (int i = 0; i < SERVO_COUNT; ++i) {
             pca9685_set_angle((uint8_t)i, MIN_ANGLE_X100);
         }
         pca9685_enable_output(false);
     } else if (since_ms > WIRELESS_TIMEOUT_MS) {
+        set_state(SAFETY_STATE_TIMEOUT_HOLD);
         pca9685_enable_output(false);
     } else {
+        set_state(SAFETY_STATE_NORMAL);
         pca9685_enable_output(true);
     }
 }
@@ -55,4 +82,12 @@ esp_err_t safety_manager_init(void) {
 
 void safety_manager_heartbeat(void) {
     last_rx_us = esp_timer_get_time();
+    if (g_state != SAFETY_STATE_ESTOP) {
+        set_state(SAFETY_STATE_NORMAL);
+        pca9685_enable_output(true);
+    }
+}
+
+bool safety_manager_motion_allowed(void) {
+    return g_state == SAFETY_STATE_NORMAL;
 }

@@ -6,6 +6,8 @@
 static const char *TAG = "sensor_reader";
 static esp_adc_cal_characteristics_t adc1_chars;
 static esp_adc_cal_characteristics_t adc2_chars;
+static uint16_t last_adc2_vals[2] = {2048, 2048};
+static uint32_t adc2_timeout_count = 0;
 
 static const adc1_channel_t adc1_channels[] = {
     ADC1_CHANNEL_4, // GPIO32
@@ -44,14 +46,30 @@ static uint32_t oversample_adc1(adc1_channel_t ch) {
     return acc / 16;
 }
 
-static uint32_t oversample_adc2(adc2_channel_t ch) {
+static esp_err_t oversample_adc2(adc2_channel_t ch, uint16_t fallback, uint16_t *out) {
+    if (!out) {
+        return ESP_ERR_INVALID_ARG;
+    }
     int raw = 0;
     uint32_t acc = 0;
+    int ok = 0;
+    esp_err_t last_err = ESP_OK;
     for (int i = 0; i < 16; ++i) {
-        adc2_get_raw(ch, ADC_WIDTH_BIT_12, &raw);
-        acc += raw;
+        esp_err_t err = adc2_get_raw(ch, ADC_WIDTH_BIT_12, &raw);
+        if (err == ESP_OK) {
+            acc += (uint32_t)raw;
+            ok++;
+        } else {
+            last_err = err;
+        }
     }
-    return acc / 16;
+    if (ok == 0) {
+        *out = fallback;
+        return (last_err == ESP_OK) ? ESP_ERR_TIMEOUT : last_err;
+    }
+
+    *out = (uint16_t)(acc / (uint32_t)ok);
+    return ESP_OK;
 }
 
 esp_err_t sensor_reader_read_all(uint16_t *raw_adc_vals) {
@@ -62,7 +80,19 @@ esp_err_t sensor_reader_read_all(uint16_t *raw_adc_vals) {
         raw_adc_vals[i] = (uint16_t)oversample_adc1(adc1_channels[i]);
     }
     for (int i = 0; i < 2; ++i) {
-        raw_adc_vals[8 + i] = (uint16_t)oversample_adc2(adc2_channels[i]);
+        uint16_t sample = last_adc2_vals[i];
+        esp_err_t err = oversample_adc2(adc2_channels[i], last_adc2_vals[i], &sample);
+        raw_adc_vals[8 + i] = sample;
+        if (err == ESP_OK) {
+            last_adc2_vals[i] = sample;
+        } else {
+            adc2_timeout_count++;
+            if ((adc2_timeout_count % 50U) == 1U) {
+                ESP_LOGW(TAG,
+                         "ADC2 read blocked (likely Wi-Fi/ESP-NOW contention), using last value. count=%lu",
+                         (unsigned long)adc2_timeout_count);
+            }
+        }
     }
     return ESP_OK;
 }
