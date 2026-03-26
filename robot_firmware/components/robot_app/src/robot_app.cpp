@@ -1,4 +1,5 @@
 #include "robot_app.h"
+#include "common_config.h"
 #include "espnow_rx.h"
 #include "continuous_mapper.h"
 #include "safety_manager.h"
