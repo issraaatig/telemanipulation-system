@@ -3,7 +3,7 @@
 
 static uint16_t sma_buffer[FLEX_SENSOR_COUNT][SMA_WINDOW];
 static uint32_t sma_sum[FLEX_SENSOR_COUNT];
-static int sma_idx = 0;
+static uint8_t sma_idx[FLEX_SENSOR_COUNT];
 
 uint16_t map_angle_to_pwm(uint16_t angle_deg_times_100) {
     if (angle_deg_times_100 < MIN_ANGLE_X100) {
@@ -30,18 +30,21 @@ float linear_interp(float x, float x0, float x1, float y0, float y1) {
 void sma_reset(void) {
     memset(sma_buffer, 0, sizeof(sma_buffer));
     memset(sma_sum, 0, sizeof(sma_sum));
-    sma_idx = 0;
+    memset(sma_idx, 0, sizeof(sma_idx));
 }
 
 uint16_t sma_update(int channel, uint16_t sample) {
     if (channel < 0 || channel >= FLEX_SENSOR_COUNT) {
         return sample;
     }
-    sma_sum[channel] -= sma_buffer[channel][sma_idx];
-    sma_buffer[channel][sma_idx] = sample;
+    uint8_t idx = sma_idx[channel];
+    sma_sum[channel] -= sma_buffer[channel][idx];
+    sma_buffer[channel][idx] = sample;
     sma_sum[channel] += sample;
-    if (++sma_idx >= SMA_WINDOW) {
-        sma_idx = 0;
+    idx++;
+    if (idx >= SMA_WINDOW) {
+        idx = 0;
     }
+    sma_idx[channel] = idx;
     return (uint16_t)(sma_sum[channel] / SMA_WINDOW);
 }

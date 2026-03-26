@@ -41,9 +41,11 @@ static void watchdog_cb(void *arg) {
     int64_t now = esp_timer_get_time();
     int64_t since_ms = (now - last_rx_us) / 1000;
     if (since_ms > SAFETY_HOLD_MS) {
-        set_state(SAFETY_STATE_SAFE_OPEN);
-        for (int i = 0; i < SERVO_COUNT; ++i) {
-            pca9685_set_angle((uint8_t)i, MIN_ANGLE_X100);
+        if (g_state != SAFETY_STATE_SAFE_OPEN) {
+            set_state(SAFETY_STATE_SAFE_OPEN);
+            for (int i = 0; i < SERVO_COUNT; ++i) {
+                pca9685_set_angle((uint8_t)i, MIN_ANGLE_X100);
+            }
         }
         pca9685_enable_output(false);
     } else if (since_ms > WIRELESS_TIMEOUT_MS) {
@@ -64,9 +66,21 @@ esp_err_t safety_manager_init(void) {
     io.pull_up_en = GPIO_PULLUP_ENABLE;
     io.pull_down_en = GPIO_PULLDOWN_DISABLE;
     io.intr_type = GPIO_INTR_NEGEDGE;
-    gpio_config(&io);
-    gpio_install_isr_service(0);
-    gpio_isr_handler_add(static_cast<gpio_num_t>(EMERGENCY_STOP_GPIO), emergency_isr, NULL);
+    esp_err_t err = gpio_config(&io);
+    if (err != ESP_OK) {
+        ESP_LOGE(TAG, "gpio_config failed: %s", esp_err_to_name(err));
+        return err;
+    }
+    err = gpio_install_isr_service(0);
+    if (err != ESP_OK && err != ESP_ERR_INVALID_STATE) {
+        ESP_LOGE(TAG, "gpio_install_isr_service failed: %s", esp_err_to_name(err));
+        return err;
+    }
+    err = gpio_isr_handler_add(static_cast<gpio_num_t>(EMERGENCY_STOP_GPIO), emergency_isr, NULL);
+    if (err != ESP_OK && err != ESP_ERR_INVALID_STATE) {
+        ESP_LOGE(TAG, "gpio_isr_handler_add failed: %s", esp_err_to_name(err));
+        return err;
+    }
 
     const esp_timer_create_args_t args = {
         .callback = watchdog_cb,
@@ -75,8 +89,16 @@ esp_err_t safety_manager_init(void) {
         .name = "safety_timer",
         .skip_unhandled_events = false
     };
-    esp_timer_create(&args, &watchdog_timer);
-    esp_timer_start_periodic(watchdog_timer, 20 * 1000); // 20 ms
+    err = esp_timer_create(&args, &watchdog_timer);
+    if (err != ESP_OK) {
+        ESP_LOGE(TAG, "esp_timer_create failed: %s", esp_err_to_name(err));
+        return err;
+    }
+    err = esp_timer_start_periodic(watchdog_timer, 20 * 1000); // 20 ms
+    if (err != ESP_OK) {
+        ESP_LOGE(TAG, "esp_timer_start_periodic failed: %s", esp_err_to_name(err));
+        return err;
+    }
     return ESP_OK;
 }
 

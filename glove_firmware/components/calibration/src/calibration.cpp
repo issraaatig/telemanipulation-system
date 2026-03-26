@@ -26,9 +26,9 @@ static const float k_res_table_kohm[FLEX_SENSOR_COUNT][5] = {
     { 93.0f,  88.0f,  87.0f,  87.0f,  87.0f}
 };
 
-// Adjust this constant to match your real divider resistor.
-// Units are kOhm so output resistance matches the table above.
-#define FLEX_FIXED_RESISTOR_KOHM 100.0f
+// Fixed resistor of the glove voltage divider.
+// Set to 10 kOhm to match hardware and keep computed resistance in kOhm.
+#define FLEX_FIXED_RESISTOR_KOHM 10.0f
 #define ADC_MAX_RAW 4095.0f
 
 static float adc_raw_to_resistance_kohm(uint16_t adc_raw) {

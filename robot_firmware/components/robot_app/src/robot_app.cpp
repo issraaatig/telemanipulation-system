@@ -49,11 +49,31 @@ static void servo_task(void *arg) {
 
 void robot_app_start(void) {
     angle_queue = xQueueCreate(5, sizeof(glove_angles_t));
-    pca9685_init();
-    safety_manager_init();
-    fsr_feedback_init();
-    espnow_rx_init(angle_queue);
+    if (!angle_queue) {
+        ESP_LOGE(TAG, "Failed to create angle queue");
+        return;
+    }
 
-    xTaskCreate(servo_task, "servo_task", 4096, NULL, 10, NULL);
+    esp_err_t err = pca9685_init();
+    if (err != ESP_OK) {
+        ESP_LOGE(TAG, "pca9685_init failed: %s", esp_err_to_name(err));
+        return;
+    }
+    err = safety_manager_init();
+    if (err != ESP_OK) {
+        ESP_LOGE(TAG, "safety_manager_init failed: %s", esp_err_to_name(err));
+        return;
+    }
+    fsr_feedback_init();
+    err = espnow_rx_init(angle_queue);
+    if (err != ESP_OK) {
+        ESP_LOGE(TAG, "espnow_rx_init failed: %s", esp_err_to_name(err));
+        return;
+    }
+
+    if (xTaskCreate(servo_task, "servo_task", 4096, NULL, 10, NULL) != pdPASS) {
+        ESP_LOGE(TAG, "Failed to create servo_task");
+        return;
+    }
     ESP_LOGI(TAG, "Robot app started");
 }

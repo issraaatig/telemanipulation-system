@@ -28,11 +28,30 @@ static void glove_task(void *arg) {
 }
 
 void glove_app_start(void) {
-    calibration_init();
-    sensor_reader_init();
-    filter_pipeline_init();
-    espnow_tx_init();
+    esp_err_t err = calibration_init();
+    if (err != ESP_OK) {
+        ESP_LOGE(TAG, "calibration_init failed: %s", esp_err_to_name(err));
+        return;
+    }
+    err = sensor_reader_init();
+    if (err != ESP_OK) {
+        ESP_LOGE(TAG, "sensor_reader_init failed: %s", esp_err_to_name(err));
+        return;
+    }
+    err = filter_pipeline_init();
+    if (err != ESP_OK) {
+        ESP_LOGE(TAG, "filter_pipeline_init failed: %s", esp_err_to_name(err));
+        return;
+    }
+    err = espnow_tx_init();
+    if (err != ESP_OK) {
+        ESP_LOGE(TAG, "espnow_tx_init failed: %s", esp_err_to_name(err));
+        return;
+    }
 
-    xTaskCreate(glove_task, "glove_task", 4096, NULL, 10, NULL);
+    if (xTaskCreate(glove_task, "glove_task", 4096, NULL, 10, NULL) != pdPASS) {
+        ESP_LOGE(TAG, "Failed to create glove_task");
+        return;
+    }
     ESP_LOGI(TAG, "Glove app started");
 }
